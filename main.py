@@ -1,21 +1,20 @@
-# main.py → AL INICIO
+# main.py → CORREGIDO Y LIMPIO
 import os
-from dotenv import load_dotenv
-load_dotenv()
-
-# === EVENTLET (FUNCIONA CON setuptools) ===
-import eventlet
-eventlet.monkey_patch()  # ← Habilita hilos verdes
-
+# import eventlet
+# eventlet.monkey_patch()
+# === POR ESTO ===
+import gevent
+from gevent import monkey
+monkey.patch_all()  # HACE LO MISMO QUE eventlet.monkey_patch()
 # === PATCH DNS (Render) ===
 import socket
-original_getaddrinfo = socket.getaddrinfo
-def patched_getaddrinfo(*args, **kwargs):
-    if args[0] in ['localhost', '127.0.0.1']:
-        args = list(args)
-        args[0] = '127.0.0.1'
-    return original_getaddrinfo(*args, **kwargs)
-socket.getaddrinfo = patched_getaddrinfo
+# original_getaddrinfo = socket.getaddrinfo
+# def patched_getaddrinfo(*args, **kwargs):
+#     if args[0] in ['localhost', '127.0.0.1']:
+#         args = list(args)
+#         args[0] = '127.0.0.1'
+#     return original_getaddrinfo(*args, **kwargs)
+# socket.getaddrinfo = patched_getaddrinfo
 
 from flask import Flask, request, jsonify, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -24,17 +23,12 @@ from rooms import create_room, verify_pin, get_room
 from auth import verify_admin
 import redis
 from datetime import datetime
-from pymongo import MongoClient
 import threading
 
-# === CONFIG ===
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'supersecreto2025')
 
-# MongoDB ya se conecta en models.py
-from models import init_db, rooms, user_sessions, db_lock
-
-# === Redis (Upstash REST o Redis Protocol) ===
+# === Redis ===
 REDIS_URL = os.environ.get('UPSTASH_REDIS_REST_URL')
 REDIS_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
 
@@ -66,9 +60,9 @@ else:
     r = redis.Redis(host='127.0.0.1', port=6379, db=0, socket_connect_timeout=2)
 
 # === SocketIO ===
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
-# === INIT DB ===
+# === INIT DB (SOLO UNA VEZ) ===
 init_db()
 active_sessions = {}
 
@@ -98,22 +92,19 @@ def handle_join(data):
     ip = request.remote_addr
     sid = request.sid
     
-    print(f"👤 Intentando unir: {nickname} a sala {room_id} con PIN '{pin}' desde IP {ip}")
+    print(f"Intentando unir: {nickname} a sala {room_id} desde IP {ip}")
 
-    # Verificar PIN con logging
     if not verify_pin(room_id, pin):
-        print(f"❌ PIN INCORRECTO para sala {room_id}")
+        print(f"PIN INCORRECTO para sala {room_id}")
         emit('error', {'msg': 'PIN incorrecto'})
         return
 
-    # Sesión única por IP
     lock_key = f"lock:{ip}:{room_id}"
     if r.get(lock_key):
         emit('error', {'msg': 'Ya estás en esta sala desde otro dispositivo'})
         return
 
-    r.setex(lock_key, 3600, sid)  # 1 hora
-
+    r.setex(lock_key, 3600, sid)
     join_room(room_id)
     active_sessions[sid] = {
         'room_id': room_id,
@@ -121,7 +112,6 @@ def handle_join(data):
         'ip': ip
     }
 
-    # Guardar sesión en MongoDB
     with db_lock:
         user_sessions.insert_one({
             "room_id": room_id,
@@ -133,7 +123,7 @@ def handle_join(data):
 
     emit('joined', {'nickname': nickname}, room=room_id)
     emit('user_list', get_users_in_room(room_id), room=room_id)
-    print(f"✅ {nickname} unido a {room_id}")
+    print(f"{nickname} unido a {room_id}")
 
 @socketio.on('message')
 def handle_message(data):
@@ -181,7 +171,6 @@ def handle_disconnect():
         r.delete(f"lock:{ip}:{room_id}")
         leave_room(room_id)
 
-        # Borrar de MongoDB
         with db_lock:
             user_sessions.delete_one({"sid": sid})
 
@@ -191,12 +180,11 @@ def handle_disconnect():
 def get_users_in_room(room_id):
     return [s['nickname'] for s in active_sessions.values() if s['room_id'] == room_id]
 
+@app.route('/test')
+def test_route():
+    return {"status": "ok"}
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"Servidor en http://0.0.0.0:{port}")
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
-    
-# Al final de app.py
-@app.route('/test')
-def test_route():
-    return {"status": "ok"}

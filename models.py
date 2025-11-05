@@ -2,6 +2,8 @@
 from pymongo import MongoClient
 import threading
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # === MONGODB_URI: OBLIGATORIO EN PROD, OPCIONAL EN DEV ===
 MONGODB_URI = os.environ.get('MONGODB_URI')
