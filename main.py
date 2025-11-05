@@ -1,15 +1,17 @@
-# === FIX DNS + EVENTLET ===
+# === IMPORTS ===
+import os
 import socket
-original_getaddrinfo = socket.getaddrinfo
-def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    if host in ['localhost', '127.0.0.1']:
-        return original_getaddrinfo('127.0.0.1', port, family, type, proto, flags)
-    return original_getaddrinfo(host, port, family, type, proto, flags)
-socket.getaddrinfo = patched_getaddrinfo
-# ===========================
-
 import eventlet
 eventlet.monkey_patch()
+
+# === PATCH DNS (Render) ===
+original_getaddrinfo = socket.getaddrinfo
+def patched_getaddrinfo(*args, **kwargs):
+    if args[0] in ['localhost', '127.0.0.1']:
+        args = list(args)
+        args[0] = '127.0.0.1'
+    return original_getaddrinfo(*args, **kwargs)
+socket.getaddrinfo = patched_getaddrinfo
 
 from flask import Flask, request, jsonify, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -18,16 +20,52 @@ from rooms import create_room, verify_pin, get_room
 from auth import verify_admin
 import redis
 from datetime import datetime
+from pymongo import MongoClient
+import threading
 
+# === CONFIG ===
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'supersecreto2025'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'supersecreto2025')
+
+# MongoDB ya se conecta en models.py
+from models import init_db, rooms, user_sessions, db_lock
+
+# === Redis (Upstash REST o Redis Protocol) ===
+REDIS_URL = os.environ.get('UPSTASH_REDIS_REST_URL')
+REDIS_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
+
+if REDIS_URL and REDIS_TOKEN:
+    import requests
+    class UpstashRedis:
+        def __init__(self, url, token):
+            self.url = url
+            self.token = token
+        def get(self, key):
+            try:
+                r = requests.get(f"{self.url}/{key}", headers={"Authorization": f"Bearer {self.token}"})
+                return r.json().get('result')
+            except:
+                return None
+        def setex(self, key, seconds, value):
+            try:
+                requests.post(self.url, json=["SET", key, value, "EX", seconds], headers={"Authorization": f"Bearer {self.token}"})
+            except:
+                pass
+        def delete(self, key):
+            try:
+                requests.post(self.url, json=["DEL", key], headers={"Authorization": f"Bearer {self.token}"})
+            except:
+                pass
+    r = UpstashRedis(REDIS_URL, REDIS_TOKEN)
+else:
+    import redis
+    r = redis.Redis(host='127.0.0.1', port=6379, db=0, socket_connect_timeout=2)
+
+# === SocketIO ===
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-r = redis.Redis(host='127.0.0.1', port=6379, db=0, socket_connect_timeout=2)
-
-# Inicializar DB
+# === INIT DB ===
 init_db()
-
 active_sessions = {}
 
 # === RUTAS REST ===
@@ -150,8 +188,9 @@ def get_users_in_room(room_id):
     return [s['nickname'] for s in active_sessions.values() if s['room_id'] == room_id]
 
 if __name__ == '__main__':
-    print("Servidor en http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    print(f"Servidor en http://0.0.0.0:{port}")
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
     
 # Al final de app.py
 @app.route('/test')
