@@ -12,3 +12,4 @@ gunicorn==21.2.0
 requests==2.31.0
 setuptools>=65.5.1  # ← ESTO ARREGLA distutils
 python-dotenv
+Flask-CORS==4.0.0  # ← Para CORS
