@@ -1,10 +1,14 @@
-# === IMPORTS ===
+# main.py → AL INICIO
 import os
-import socket
-import eventlet
-eventlet.monkey_patch()
+from dotenv import load_dotenv
+load_dotenv()
+
+# === GEVENT MONKEY PATCH (REEMPLAZA eventlet) ===
+from gevent import monkey
+monkey.patch_all()  # ← Habilita hilos verdes (concurrencia)
 
 # === PATCH DNS (Render) ===
+import socket
 original_getaddrinfo = socket.getaddrinfo
 def patched_getaddrinfo(*args, **kwargs):
     if args[0] in ['localhost', '127.0.0.1']:
