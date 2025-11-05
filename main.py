@@ -3,9 +3,9 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# === GEVENT MONKEY PATCH (REEMPLAZA eventlet) ===
-from gevent import monkey
-monkey.patch_all()  # ← Habilita hilos verdes (concurrencia)
+# === EVENTLET (FUNCIONA CON setuptools) ===
+import eventlet
+eventlet.monkey_patch()  # ← Habilita hilos verdes
 
 # === PATCH DNS (Render) ===
 import socket
