@@ -3,7 +3,7 @@ import bcrypt
 # CREDENCIALES FIJAS DEL ADMIN
 ADMIN_USER = "admin"
 # Hash de "espe2025" generado con bcrypt
-ADMIN_HASH = b'$2a$12$8dgp4N3xGN3xPzVXFrEmxeZN3nS2o3qXTqaObQsoTvjeiaCY3llei'
+ADMIN_HASH = b'$2b$12$Gaifiz8Ou5bAPtitMtrGce.ko8xE28KZE6MGvhu0UExnwOVF2Aj66'
 
 def verify_admin(username, password):
     if username != ADMIN_USER:

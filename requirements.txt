@@ -1,7 +1,6 @@
 Flask==2.3.3
 Flask-SocketIO==5.3.6
 python-socketio==5.8.0
-gevent        # REEMPLAZA eventlet
 bcrypt==4.0.1
 redis==5.0.1
 shortuuid==1.0.11
@@ -10,6 +9,6 @@ pytest==7.4.0
 pytest-cov==4.1.0
 gunicorn==21.2.0
 requests==2.31.0
-setuptools>=65.5.1  # ← ESTO ARREGLA distutils
 python-dotenv
 Flask-CORS==4.0.0  # ← Para CORS
+eventlet==0.33.3
