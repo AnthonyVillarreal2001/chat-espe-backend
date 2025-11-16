@@ -11,4 +11,4 @@ gunicorn==21.2.0
 requests==2.31.0
 python-dotenv
 Flask-CORS==4.0.0  # ← Para CORS
-eventlet==0.33.3
+eventlet==0.36.1
