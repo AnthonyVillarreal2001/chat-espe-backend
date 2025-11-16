@@ -17,19 +17,26 @@ messages = db['messages']  # ← NUEVA COLECCIÓN
 db_lock = threading.Lock()
 
 def init_db():
+    if os.getenv("RAILWAY_ENVIRONMENT") == "production":
+        print("PRODUCCIÓN: No se limpia la DB")
+        return  # ← NO LIMPIA EN PRODUCCIÓN
+
     with db_lock:
         print("Limpieza de DB para pruebas...")
-        rooms.delete_many({})
-        user_sessions.delete_many({})
-        messages.delete_many({})
-        print("DB limpia")
+        try:
+            rooms.delete_many({})
+            user_sessions.delete_many({})
+            messages.delete_many({})
+            print("DB limpia")
+        except Exception as e:
+            print(f"Advertencia: No se pudo limpiar DB (¿Mongo no conectado?): {e}")
+
     try:
         client.admin.command('ping')
         rooms.create_index("id", unique=True)
         user_sessions.create_index([("room_id", 1), ("sid", 1)])
         messages.create_index([("room_id", 1), ("timestamp", 1)])
-        print("MongoDB conectado correctamente (Compass activo)")
+        print("MongoDB conectado correctamente")
     except Exception as e:
-        print(f"ERROR: No se pudo conectar a MongoDB: {e}")
-        print("Asegúrate de tener MongoDB Compass abierto y conectado a 127.0.0.1:27017")
-        exit(1)
+        print(f"ADVERTENCIA: MongoDB no disponible al inicio: {e}")
+        print("El servidor seguirá corriendo. Mongo se conectará cuando esté listo.")

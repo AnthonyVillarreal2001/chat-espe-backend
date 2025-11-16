@@ -1,3 +1,8 @@
+# Variables de entorno
+.env
+.env.local
+.env.*
+
 # Python
 __pycache__/
 *.py[cod]
@@ -19,43 +24,26 @@ coverage.xml
 *.cover
 *.log
 .gitignore
-*.DS_Store
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.sqlite
 
-# Flask
-instance/
-.webassets-cache
-.flaskenv
-
-# MongoDB
-*.dump
-*.mongodump
-
-# Redis
-*.rdb
-
-# Entorno
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Build
-build/
-dist/
-*.egg-info/
+# OS
+.DS_Store
+Thumbs.db
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
+# Railway
+.railway/
 
-# Pruebas
-htmlcov/
-.pytest_cache/
+# Mongo/Redis local
+*.dump
+mongodump/
