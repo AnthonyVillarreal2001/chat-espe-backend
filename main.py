@@ -31,8 +31,9 @@ r = redis.from_url(redis_url)
 mongo_url = os.getenv("MONGO_URL", "mongodb://127.0.0.1:27017")
 client = MongoClient(mongo_url)
 
-# Inicializar DB
-init_db()
+# === INICIALIZAR DB SOLO EN DESARROLLO ===
+if os.getenv("RAILWAY_ENVIRONMENT") != "production":  # ← AÑADE ESTO
+    init_db()
 
 active_sessions = {}
 
