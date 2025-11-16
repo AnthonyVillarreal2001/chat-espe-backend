@@ -1,5 +1,7 @@
 # === FIX DNS + EVENTLET ===
 import socket
+
+from pymongo import MongoClient
 original_getaddrinfo = socket.getaddrinfo
 def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if host in ['localhost', '127.0.0.1']:
@@ -16,12 +18,18 @@ from rooms import create_room, verify_pin, get_room, get_room_messages
 from auth import verify_admin
 import redis
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecreto2025'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# === REDIS ===
+redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379")
+r = redis.from_url(redis_url)
 
-r = redis.Redis(host='127.0.0.1', port=6379, db=0, socket_connect_timeout=2)
+# === MONGO ===
+mongo_url = os.getenv("MONGO_URL", "mongodb://127.0.0.1:27017")
+client = MongoClient(mongo_url)
 
 # Inicializar DB
 init_db()
@@ -66,13 +74,13 @@ def handle_join(data):
         return
 
     # === BLOQUEO POR SID (NO POR IP) ===
-    # lock_key_ip = f"lock:{ip}:{room_id}"
-    lock_key = f"lock:sid:{sid}"
-    if r.get(lock_key):
+    lock_key_ip = f"lock:{ip}:{room_id}"
+    # lock_key = f"lock:sid:{sid}"
+    if r.get(lock_key_ip):
         emit('error', {'msg': 'Ya estás conectado en esta pestaña'})
         return
-    # r.setex(lock_key, 3600, sid)
-    r.setex(lock_key, 3600, "1")  # 1 hora
+    r.setex(lock_key_ip, 3600, sid)
+    # r.setex(lock_key, 3600, "1")  # 1 hora
 
     join_room(room_id)
     active_sessions[sid] = {
@@ -80,7 +88,7 @@ def handle_join(data):
         'nickname': nickname,
         'ip': ip,
         #comentar si es para ip
-        'sid': sid
+        # 'sid': sid
     }
 
     with db_lock:
@@ -155,8 +163,8 @@ def handle_disconnect():
     if sid in active_sessions:
         room_id = active_sessions[sid]['room_id']
         ip = active_sessions[sid]['ip']
-        # r.delete(f"lock:{ip}:{room_id}")
-        r.delete(f"lock:sid:{sid}")
+        r.delete(f"lock:{ip}:{room_id}")
+        # r.delete(f"lock:sid:{sid}")
         leave_room(room_id)
         with db_lock:
             user_sessions.delete_one({"sid": sid})
@@ -167,5 +175,6 @@ def get_users_in_room(room_id):
     return [s['nickname'] for s in active_sessions.values() if s['room_id'] == room_id]
 
 if __name__ == '__main__':
-    print("Servidor en http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    port = int(os.getenv("PORT", 5000))  # ← AÑADIR
+    print(f"Servidor en http://0.0.0.0:{port}")
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)

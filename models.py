@@ -1,13 +1,14 @@
 from pymongo import MongoClient
 from datetime import datetime
 import threading
+import os  # ← AÑADIR
 
+mongo_url = os.getenv("MONGO_URL", "mongodb://127.0.0.1:27017")
 client = MongoClient(
-    host='127.0.0.1',
-    port=27017,
-    serverSelectionTimeoutMS=3000,
-    connectTimeoutMS=3000,
-    socketTimeoutMS=3000
+    mongo_url,
+    serverSelectionTimeoutMS=5000,
+    connectTimeoutMS=5000,
+    socketTimeoutMS=5000
 )
 db = client['chat_espe']
 rooms = db['rooms']
